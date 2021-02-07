@@ -12,13 +12,14 @@ let botTimer;
 let waveAnalyzerTimer;
 const baitMaxUseCount = config.fishingRodType == 0 ? 30 : 5;
 const waveInterval = 2400;
+let fullTime = false;
 
 const positions = {
 	FHD: {
 		rectangle: {x: 800, y: 900},
 		waveBeginning: {x: 800, y: 947},
-		defaultBait: {x: 959, y: 918},
-		pulledBait: {x: 959, y: 928}
+		defaultBait: {x: 960, y: 934},
+		pulledBait: {x: 960, y: 944}
 		// move of the wave and the bait: 10px - every 2400ms
 	}
 }
@@ -76,17 +77,35 @@ function analyzeWave() {
 		const date = new Date();
 		const nextDate = new Date(date.getTime() + waveInterval);
 		console.log(`ANALIZATOR FALI | Znaleziono falę w ${date.toLocaleTimeString()}:${date.getMilliseconds()}. Następna przewidywana fala pojawi się w: ${nextDate.toLocaleTimeString()}:${nextDate.getMilliseconds()}`)
-		if (!botTimer) botTimer = setInterval(main, waveInterval);
+		if (!botTimer) botTimer = setInterval(main, waveInterval/2);
 		else correctInterval();
+		if (waveAnalyzerTimer) {
+			clearInterval(waveAnalyzerTimer);
+			waveAnalyzerTimer = undefined;
+		}
 	}
 }
 
-const preventGoingAFK = () => robot.keyTap('space');
-const pullTheFishingRod = async () => robot.mouseClick();
+const preventGoingAFK = async () => robot.keyTap('space');
+const scrollToFishingRod = async () => await robot.scrollMouse(0, 1);
+const pullTheFishingRod = async () => await robot.mouseClick();
 
-function isPlayerFishing() { // checking if player has fishing rectangle shown
+function hasPlayerFishingWindowShown() { // checking if player has fishing rectangle shown
 	const matchingColor = '111111';
+//	const matchingColor = '454345';
 	const color = robot.getPixelColor(positions[config.resolution].rectangle.x, positions[config.resolution].rectangle.y);
+	return matchingColor == color;
+}
+
+function isPlayerFishing() {
+	const matchingColor = 'dcdcdc';
+	const color = robot.getPixelColor(positions[config.resolution].defaultBait.x, (fullTime ? positions[config.resolution].defaultBait.y : positions[config.resolution].defaultBait.y + 5));
+	return matchingColor == color;
+}
+
+function shouldAlreadyPull() {
+	const matchingColor = 'dcdcdc';
+	const color = robot.getPixelColor(positions[config.resolution].pulledBait.x, (fullTime ? positions[config.resolution].pulledBait.y : positions[config.resolution].pulledBait.y + 5));
 	return matchingColor == color;
 }
 
@@ -101,26 +120,36 @@ function takeBaitFromInventory() {
 
 async function main() {
 	// there will be checking if player should already pull the fishing rod, pulling it and taking baits from inventory
-	preventGoingAFK();
-	if (!isPlayerFishing()) { 
-		await pullTheFishingRod();
+	if (fullTime) {
+		preventGoingAFK();
+		if (!hasPlayerFishingWindowShown()) { 
+			await scrollToFishingRod();
+			if (!hasPlayerFishingWindowShown()) {
+				console.log('PROBLEM! | Prawdopodobnie nie masz wędki');
+				disableBot();
+				return;
+			}
+		}
 		if (!isPlayerFishing()) {
-			// taking bait from inventory there
+			await pullTheFishingRod();
+			if (!isPlayerFishing()) {
+				// taking bait here
+			}
 		}
 	}
 
-	// checking if bait is in the right place and player should press left mouse button there
-
-
-	setInterval( () => { // check for desynchronization every 3 minutes
-		enableWaveAnalyzer();
-	}, 60000 * 3);
+	if (shouldAlreadyPull()) {
+		pullTheFishingRod();
+		console.log('SUKCES | Złowiono rybę ' + new Date().toLocaleTimeString());
+	}
+	fullTime = !fullTime;
 }
+
 
 function correctInterval() {
 	if (!botTimer) return;
 	clearInterval(botTimer);
-	botTimer = setInterval(main, waveInterval);
+	botTimer = setInterval(main, waveInterval/2);
 }
 
 async function writeInConsole(text) {
@@ -142,16 +171,17 @@ function enableWaveAnalyzer() {
 			console.log('BŁĄD! | Nie zdołano przeanalizować fali. Nie wiesz co to oznacza? Spytaj twórcy bota.');
 			disableBot();
 		}
-	}, 10000);
+	}, 5000);
 }
 
 async function enableBot() {
 	await writeInConsole('BOT ON ');
-	if (!isPlayerFishing()) {
-		await pullTheFishingRod();
-		if (!isPlayerFishing()) {
+	if (!hasPlayerFishingWindowShown()) {
+		await scrollToFishingRod();
+		if (!hasPlayerFishingWindowShown()) {
 			// todo: first try to take bait from inventory - if it fails, then shutdown
-			console.log('PROBLEM! | Nie udało się włączyć bota - gracz nie łowi. Próba naciśnięcia LPM w celu użycia wędki zakończyła się niepowodzeniem.');
+		//	console.log('PROBLEM! | Nie udało się włączyć bota - gracz nie łowi. Próba naciśnięcia LPM w celu użycia wędki zakończyła się niepowodzeniem.');
+			console.log('PROBLEM! | PROBLEM! | Prawdopodobnie nie masz wędki (lub przynęty, wykrywanie jej zostanie napisane w niedalekiej przyszlosci) - bot został wyłączony.')
 			disableBot();
 			return;
 		}
@@ -180,3 +210,10 @@ hotkey.on({
 	triggerAll: true,
 	callback: () => (!botTimer && !waveAnalyzerTimer) ? enableBot() : disableBot()
 });
+
+setInterval( () => { // check for desynchronization every 3 minutes
+	if (botTimer && !waveAnalyzerTimer)
+		enableWaveAnalyzer();
+}, 60000 * 3);
+
+// todo: bait recognition (image comparison, compare text in box)
