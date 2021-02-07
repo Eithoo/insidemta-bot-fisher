@@ -18,6 +18,6 @@
   "homepage": "https://github.com/Eithoo/insidemta-bot-fisher#readme",
   "dependencies": {
     "node-hotkeys": "^1.3.1",
-    "robotjs": "git+https://github.com/octalmage/robotjs.git"
+    "robotjs": "^0.6.0"
   }
 }

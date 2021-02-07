@@ -87,7 +87,7 @@ function analyzeWave() {
 }
 
 const preventGoingAFK = async () => robot.keyTap('space');
-const scrollToFishingRod = async () => await robot.scrollMouse(0, 1);
+const scrollToFishingRod = async () => await robot.scrollMouse(0, 20); // not working - robot.js fault
 const pullTheFishingRod = async () => await robot.mouseClick();
 
 function hasPlayerFishingWindowShown() { // checking if player has fishing rectangle shown
@@ -160,7 +160,7 @@ async function writeInConsole(text) {
 	await new Promise(resolve => setTimeout(() => {
 		robot.keyTap('f8');
 		resolve();
-	}, 1000));
+	}, 500));
 	return true;
 }
 
@@ -175,7 +175,7 @@ function enableWaveAnalyzer() {
 }
 
 async function enableBot() {
-	await writeInConsole('BOT ON ');
+	await writeInConsole('ON');
 	if (!hasPlayerFishingWindowShown()) {
 		await scrollToFishingRod();
 		if (!hasPlayerFishingWindowShown()) {
@@ -191,7 +191,7 @@ async function enableBot() {
 }
 
 async function disableBot() {
-	await writeInConsole('BOT OFF ');
+	await writeInConsole('OFF');
 	if (botTimer) {
 		clearInterval(botTimer);
 		botTimer = undefined;
