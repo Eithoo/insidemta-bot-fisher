@@ -1,26 +1,72 @@
-const robot = require('robotjs');
-robot.setKeyboardDelay(20);
-const hotkey = require('node-hotkeys');
 const userConfig = require('./config');
+const os = require('os');
 const defaultConfig = {
 	activationKey: 'F7',
-	fishingRodType: 0,
 	resolution: 'FHD'
 };
 const config = {...defaultConfig, ...userConfig};
-let botTimer;
 let waveAnalyzerTimer;
-const baitMaxUseCount = config.fishingRodType == 0 ? 30 : 5;
 const waveInterval = 2400;
 let fullTime = false;
+let botEnabled = false;
+let lastSuccessfullFishing = new Date().getTime();
+
+
+const usersWithAccess = [
+	'EITHO',
+	'DESKTOP-O411J5U', // Esquu
+	'DESKTOP-62PPO62', // pszysiat PC
+	'DESKTOP-QHPTV0R', // pszysiat laptop
+	'DESKTOP-VIUF5NM' // next
+];
+
+function printStartupText(text1, text2) {
+	console.log('=================================');
+	console.log(`=== ${text1} ===`)
+	console.log('=================================');
+	console.log(`----${text2}----`);
+	console.log(' ');
+	console.log(' ');
+}
+
+function verifyAccess(withoutPrint) {
+	const hostname = os.hostname();
+	const found = usersWithAccess.find(user => user == hostname);
+	if (found) {
+		if (!withoutPrint) printStartupText('INSIDEMTA-BOT-FISHER v1.0', 'Nie wysyłaj tego nikomu');
+		return true;
+	} else {
+		if (!withoutPrint) printStartupText('CHUJ-CI-W-DUPE', 'nic tu dla ciebie nie ma');
+		return false;
+	}
+}
+
+if (!verifyAccess()) return false;
+
+if (new Date().getTime() > new Date(2021, 2, 15).getTime()) { // temporary
+	console.log('Po wersję bez ograniczenia czasowego zwróć się do esquu lub do oryginalnego autora, jeśli go znasz');
+	return false;
+}
+
+const robot = require('robotjs');
+robot.setKeyboardDelay(20);
+const hotkey = require('node-hotkeys');
+const fs = require('fs');
+const Jimp = require('jimp');
 
 const positions = {
 	FHD: {
 		rectangle: {x: 800, y: 900},
 		waveBeginning: {x: 800, y: 947},
 		defaultBait: {x: 960, y: 934},
-		pulledBait: {x: 960, y: 944}
+		pulledBait: {x: 960, y: 944},
+		baitNameArea: {x: 840, y: 985, width: 240, height: 22},
 		// move of the wave and the bait: 10px - every 2400ms
+		inventory: {
+			star: {x: 1880, y: 381},
+			firstItem: {x: 1360, y: 430},
+			useFirstItem: {x: 1400, y: 475}
+		}
 	}
 }
 
@@ -70,19 +116,74 @@ function isColorSimilar(c1, c2){
 	return (deltaE(color1, color2) < 10) ? true : false;
 }
 
+function captureImage(x, y, w, h) {
+	const pic = robot.screen.capture(x, y, w, h);
+	const width = pic.byteWidth / pic.bytesPerPixel // pic.width is sometimes wrong!
+	const height = pic.height
+	const image = new Jimp(width, height)
+	let red, green, blue
+	pic.image.forEach((byte, i) => {
+	  switch (i % 4) {
+		case 0: return blue = byte
+		case 1: return green = byte
+		case 2: return red = byte
+		case 3: 
+		  image.bitmap.data[i - 3] = red
+		  image.bitmap.data[i - 2] = green
+		  image.bitmap.data[i - 1] = blue
+		  image.bitmap.data[i] = 255
+	  }
+	})
+	return image;
+}
+
+function getBaitImage(){
+	return captureImage(positions[config.resolution].baitNameArea.x, positions[config.resolution].baitNameArea.y, positions[config.resolution].baitNameArea.width, positions[config.resolution].baitNameArea.height).crop(0, 0, positions[config.resolution].baitNameArea.width, positions[config.resolution].baitNameArea.height);
+}
+
+function saveImage(image){
+	const name = Math.random().toString(36).substring(6)+'.png';
+	image.write('img/'+name);
+}
+
+let images = [];
+function loadImages(){
+	fs.readdir('./img', (err, files) => {
+		if (err) throw (err);
+		files.forEach((file, index) => {
+			fs.readFile('./img/'+file, (error, data) => {
+				if (error) throw (error);
+				images.push({key: file.split('.')[0], data});
+			})
+		});
+	});
+}
+
+async function searchForBait(image){
+	const toCompare = image;
+	for (const img of images){
+		const original = await Jimp.read(img.data);
+		const diff = Jimp.diff(toCompare, original);
+		if (diff.percent < 0.02){
+			return img.key;
+		}
+	}
+	return false;
+}
+loadImages();
+
+function dupakupa(){
+	const image = getBaitImage();
+	saveImage(image);
+}
+//setTimeout(dupakupa, 4000); // do not uncomment if not needed
+
 function analyzeWave() {
 	const matchingColor ='c9c9c9';
 	const color = robot.getPixelColor(positions[config.resolution].waveBeginning.x, positions[config.resolution].waveBeginning.y);
 	if (isColorSimilar(matchingColor, color)) {
-		const date = new Date();
-		const nextDate = new Date(date.getTime() + waveInterval);
-		console.log(`ANALIZATOR FALI | Znaleziono falę w ${date.toLocaleTimeString()}:${date.getMilliseconds()}. Następna przewidywana fala pojawi się w: ${nextDate.toLocaleTimeString()}:${nextDate.getMilliseconds()}`)
-		if (!botTimer) botTimer = setInterval(main, waveInterval/2);
-		else correctInterval();
-		if (waveAnalyzerTimer) {
-			clearInterval(waveAnalyzerTimer);
-			waveAnalyzerTimer = undefined;
-		}
+		main();
+		setTimeout(main, waveInterval/2);
 	}
 }
 
@@ -92,7 +193,6 @@ const pullTheFishingRod = async () => await robot.mouseClick();
 
 function hasPlayerFishingWindowShown() { // checking if player has fishing rectangle shown
 	const matchingColor = '111111';
-//	const matchingColor = '454345';
 	const color = robot.getPixelColor(positions[config.resolution].rectangle.x, positions[config.resolution].rectangle.y);
 	return matchingColor == color;
 }
@@ -100,28 +200,42 @@ function hasPlayerFishingWindowShown() { // checking if player has fishing recta
 function isPlayerFishing() {
 	const matchingColor = 'dcdcdc';
 	const color = robot.getPixelColor(positions[config.resolution].defaultBait.x, (fullTime ? positions[config.resolution].defaultBait.y : positions[config.resolution].defaultBait.y + 5));
-	return matchingColor == color;
+	return matchingColor === color;
 }
 
 function shouldAlreadyPull() {
 	const matchingColor = 'dcdcdc';
 	const color = robot.getPixelColor(positions[config.resolution].pulledBait.x, (fullTime ? positions[config.resolution].pulledBait.y : positions[config.resolution].pulledBait.y + 5));
-	return matchingColor == color;
+	return matchingColor === color;
 }
 
-
-function checkIfPlayerIsOutOfBait() {
-
+function isInventoryOpen() {
+	const matchingColor = 'b89935';
+	const color = robot.getPixelColor(positions[config.resolution].inventory.star.x, positions[config.resolution].inventory.star.y);
+	return matchingColor === color;
 }
 
-function takeBaitFromInventory() {
-
+async function takeBaitFromInventory() {
+	if (!isInventoryOpen())
+		robot.keyTap('i');
+	robot.moveMouse(positions[config.resolution].inventory.firstItem.x, positions[config.resolution].inventory.firstItem.y); // move mouse over first favorite item in inventory
+	robot.mouseClick('right');
+	robot.moveMouseSmooth(positions[config.resolution].inventory.useFirstItem.x, positions[config.resolution].inventory.useFirstItem.y); // move mouse over "Użyj" option
+	robot.mouseClick();
+	await new Promise(resolve => setTimeout(() => {
+		robot.keyTap('i');
+		resolve();
+	}, 500));
 }
 
 async function main() {
-	// there will be checking if player should already pull the fishing rod, pulling it and taking baits from inventory
+	fullTime = !fullTime;
+	if (shouldAlreadyPull()) {
+		pullTheFishingRod();
+		lastSuccessfullFishing = new Date().getTime();
+		console.log('SUKCES | Złowiono rybę ' + new Date().toLocaleTimeString());
+	}
 	if (fullTime) {
-		preventGoingAFK();
 		if (!hasPlayerFishingWindowShown()) { 
 			await scrollToFishingRod();
 			if (!hasPlayerFishingWindowShown()) {
@@ -130,26 +244,27 @@ async function main() {
 				return;
 			}
 		}
-		if (!isPlayerFishing()) {
+
+		if (!isPlayerFishing() && !shouldAlreadyPull()) {
 			await pullTheFishingRod();
-			if (!isPlayerFishing()) {
-				// taking bait here
+			const image = getBaitImage();
+			const bait = await searchForBait(image);
+			console.log('bait: ', bait);
+			if (!bait || bait == 'brak') {
+				console.log('INFO | Podjęto próbę pobrania przynęty z ekwipunku');
+				await takeBaitFromInventory();
 			}
 		}
+
+		if (((new Date().getTime() - lastSuccessfullFishing)/1000) > 60) { // if fishing is "stuck" (bugged)
+			robot.mouseClick();
+			await new Promise(resolve => setTimeout(() => {
+				robot.mouseClick();
+				resolve();
+			}, 1000));
+		}
 	}
-
-	if (shouldAlreadyPull()) {
-		pullTheFishingRod();
-		console.log('SUKCES | Złowiono rybę ' + new Date().toLocaleTimeString());
-	}
-	fullTime = !fullTime;
-}
-
-
-function correctInterval() {
-	if (!botTimer) return;
-	clearInterval(botTimer);
-	botTimer = setInterval(main, waveInterval/2);
+	preventGoingAFK();
 }
 
 async function writeInConsole(text) {
@@ -165,41 +280,33 @@ async function writeInConsole(text) {
 }
 
 function enableWaveAnalyzer() {
-	waveAnalyzerTimer = setInterval(analyzeWave, 5);
-	setTimeout(() => {
-		if (waveAnalyzerTimer) { // if wave analyzer is still working it means it didnt find beginning of the wave
-			console.log('BŁĄD! | Nie zdołano przeanalizować fali. Nie wiesz co to oznacza? Spytaj twórcy bota.');
-			disableBot();
-		}
-	}, 5000);
+	waveAnalyzerTimer = setInterval(analyzeWave, 35);
 }
 
 async function enableBot() {
+	if (!verifyAccess(true)) return false;
+	console.log(new Date().toLocaleString() + ': włączono bota');
+	botEnabled = true;
 	await writeInConsole('ON');
 	if (!hasPlayerFishingWindowShown()) {
 		await scrollToFishingRod();
 		if (!hasPlayerFishingWindowShown()) {
-			// todo: first try to take bait from inventory - if it fails, then shutdown
-		//	console.log('PROBLEM! | Nie udało się włączyć bota - gracz nie łowi. Próba naciśnięcia LPM w celu użycia wędki zakończyła się niepowodzeniem.');
-			console.log('PROBLEM! | PROBLEM! | Prawdopodobnie nie masz wędki (lub przynęty, wykrywanie jej zostanie napisane w niedalekiej przyszlosci) - bot został wyłączony.')
+			console.log('PROBLEM! | Prawdopodobnie nie masz wędki lub przynęty - bot nie mógł zostać włączony.')
 			disableBot();
 			return;
 		}
 	}
 	enableWaveAnalyzer();
-	console.log(new Date().toLocaleString() + ': włączono bota');
+	lastSuccessfullFishing = new Date().getTime();
 }
 
 async function disableBot() {
 	await writeInConsole('OFF');
-	if (botTimer) {
-		clearInterval(botTimer);
-		botTimer = undefined;
-	}
 	if (waveAnalyzerTimer) {
 		clearInterval(waveAnalyzerTimer);
 		waveAnalyzerTimer = undefined;
 	}
+	botEnabled = false;
 	console.log(new Date().toLocaleString() + ': wyłączono bota');
 }
 
@@ -208,12 +315,5 @@ hotkey.on({
 	matchAllModifiers: true,
 	useKeyDown: true,
 	triggerAll: true,
-	callback: () => (!botTimer && !waveAnalyzerTimer) ? enableBot() : disableBot()
+	callback: () => !botEnabled ? enableBot() : disableBot()
 });
-
-setInterval( () => { // check for desynchronization every 3 minutes
-	if (botTimer && !waveAnalyzerTimer)
-		enableWaveAnalyzer();
-}, 60000 * 3);
-
-// todo: bait recognition (image comparison, compare text in box)
