@@ -43,11 +43,6 @@ function verifyAccess(withoutPrint) {
 
 if (!verifyAccess()) return false;
 
-if (new Date().getTime() > new Date(2021, 2, 15).getTime()) { // temporary
-	console.log('Po wersję bez ograniczenia czasowego zwróć się do esquu lub do oryginalnego autora, jeśli go znasz');
-	return false;
-}
-
 const robot = require('robotjs');
 robot.setKeyboardDelay(20);
 const hotkey = require('node-hotkeys');
