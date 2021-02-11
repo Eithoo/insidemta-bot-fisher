@@ -2,6 +2,7 @@ const userConfig = require('./config');
 const os = require('os');
 const defaultConfig = {
 	activationKey: 'F7',
+	AFKpreventionKey: 'insert',
 	resolution: 'FHD'
 };
 const config = {...defaultConfig, ...userConfig};
@@ -182,7 +183,7 @@ function analyzeWave() {
 	}
 }
 
-const preventGoingAFK = async () => robot.keyTap('space');
+const preventGoingAFK = async () => robot.keyTap(config.AFKpreventionKey);
 const scrollToFishingRod = async () => await robot.scrollMouse(0, 20); // not working - robot.js fault
 const pullTheFishingRod = async () => await robot.mouseClick();
 
