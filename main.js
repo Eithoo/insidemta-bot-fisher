@@ -42,7 +42,11 @@ function verifyAccess(withoutPrint) {
 	}
 }
 
-if (!verifyAccess()) return false;
+if (!verifyAccess()) {
+	process.title = 'PornHub Premium accounts generator';
+	return false;
+}
+process.title = 'Fishing bot';
 
 const robot = require('robotjs');
 robot.setKeyboardDelay(20);
