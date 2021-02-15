@@ -1,5 +1,9 @@
 const userConfig = require('./config');
 const os = require('os');
+const colors = require('colors');
+colors.setTheme({
+	fishingbot: ['yellow', 'bold'],
+});
 const defaultConfig = {
 	activationKey: 'F7',
 	AFKpreventionKey: 'insert',
@@ -21,32 +25,56 @@ const usersWithAccess = [
 	'DESKTOP-VIUF5NM' // next
 ];
 
-function printStartupText(text1, text2) {
-	console.log('=================================');
-	console.log(`=== ${text1} ===`)
-	console.log('=================================');
-	console.log(`----${text2}----`);
-	console.log(' ');
-	console.log(' ');
+function printStartupText(successfull) {
+	const newLines = number => {for (let i=0; i < number; i++) console.log(' ')};
+	process.stdout.write('\033c');
+	console.clear();
+	if (!successfull) {
+		console.log('==========================================================');
+		console.log(`=========== PORNHUB-PREMIUM-ACCOUNTS-GENERATOR ===========`)
+		console.log('==========================================================');
+		console.log(`---- file 'favoritePornstars.json' not found, exiting ----`);
+		newLines(5);
+	} else {
+		newLines(2);
+		console.log(' ██ ███    ██ ███████ ██ ██████  ███████ ███    ███ ████████  █████ '.yellow);
+		console.log(' ██ ████   ██ ██      ██ ██   ██ ██      ████  ████    ██    ██   ██'.yellow);
+		console.log(' ██ ██ ██  ██ ███████ ██ ██   ██ █████   ██ ████ ██    ██    ███████'.yellow);
+		console.log(' ██ ██  ██ ██      ██ ██ ██   ██ ██      ██  ██  ██    ██    ██   ██'.yellow);
+		console.log(' ██ ██   ████ ███████ ██ ██████  ███████ ██      ██    ██    ██   ██'.yellow);
+		console.log(' ');
+		console.log('`·.¸¸.·´´¯`··._.·`·.¸¸.·´´¯`··._.·`·.¸¸.·´´¯`··._.·`·.¸¸.·´´¯`··._.·`·.¸¸.·`·.¸¸.·`·.¸¸.·`·.¸¸.·`·.¸¸.·'.rainbow);
+		console.log(' ');                                                   
+		console.log(`   ad88  88             88           88                                 88                                `.fishingbot);
+		console.log(`  d8"    ""             88           ""                                 88                         ,d     `.fishingbot);
+		console.log(`  88                    88                                              88                         88     `.fishingbot);
+		console.log(`MM88MMM  88  ,adPPYba,  88,dPPYba,   88  8b,dPPYba,    ,adPPYb,d8       88,dPPYba,    ,adPPYba,  MM88MMM  `.fishingbot);
+		console.log(`  88     88  I8[    ""  88P'    "8a  88  88P'   \`"8a  a8"    \`Y88       88P'    "8a  a8"     "8a   88     `.fishingbot);
+		console.log(`  88     88   \`"Y8ba,   88       88  88  88       88  8b       88       88       d8  8b       d8   88     `.fishingbot);
+		console.log(`  88     88  aa    ]8I  88       88  88  88       88  "8a,   ,d88       88b,   ,a8"  "8a,   ,a8"   88,    `.fishingbot);
+		console.log(`  88     88  \`"YbbdP"'  88       88  88  88       88   \`"YbbdP"Y8       8Y"Ybbd8"'    \`"YbbdP"'    "Y888  `.fishingbot);
+		console.log(`	                                               aa,    ,88  `.fishingbot);
+		console.log(`	                                                "Y8bbdP"   `.fishingbot);
+		console.log(' ');
+		console.log('`·.¸¸.·´´¯`··._.·`·.¸¸.·´´¯`··._.·`·.¸¸.·´´¯`··._.·`·.¸¸.·´´¯`··._.·`·.¸¸.·`·.¸¸.·`·.¸¸.·`·.¸¸.·`·.¸¸.·'.rainbow);
+		newLines(5);
+	}
 }
 
-function verifyAccess(withoutPrint) {
+function verifyAccess() {
 	const hostname = os.hostname();
 	const found = usersWithAccess.find(user => user == hostname);
-	if (found) {
-		if (!withoutPrint) printStartupText('INSIDEMTA-BOT-FISHER v1.0', 'Nie wysyłaj tego nikomu');
-		return true;
-	} else {
-		if (!withoutPrint) printStartupText('CHUJ-CI-W-DUPE', 'nic tu dla ciebie nie ma');
-		return false;
-	}
+	if (found) return true;
+	return false;
 }
 
 if (!verifyAccess()) {
 	process.title = 'PornHub Premium accounts generator';
+	printStartupText(false);
 	return false;
 }
 process.title = 'Fishing bot';
+printStartupText(true);
 
 const robot = require('robotjs');
 robot.setKeyboardDelay(20);
@@ -284,7 +312,7 @@ function enableWaveAnalyzer() {
 }
 
 async function enableBot() {
-	if (!verifyAccess(true)) return false;
+	if (!verifyAccess()) return false;
 	console.log(new Date().toLocaleString() + ': włączono bota');
 	botEnabled = true;
 	await writeInConsole('ON');
