@@ -1,6 +1,9 @@
 # insidemta-bot-fisher
 Bot do automatycznego łowienia ryb na serwerze Inside MTA, w grze Multi Theft Auto.
 
+# Zabezpieczenia serwera
+Niedawno serwer, na którym działał ten bot wprowadził zabezpieczenia, przez które ten bot **nie będzie już działać**. Aby nadal działał, należałoby go tak przerobić, aby korzystał z własnego sterownika klawiatury, imitował prawdziwy sprzęt. Ja już nie gram na tamtym serwerze, więc nie marnuję czasu na wprowadzenie owych zmian.
+
 ## Instalacja
 - zainstaluj na komputerze Node.js, jeśli jeszcze nie masz
 - pobierz kod i rozpakuj
